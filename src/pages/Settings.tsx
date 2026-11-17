@@ -405,7 +405,8 @@ function Users() {
   return (
     <>
       <p className="mb-3 text-sm text-stone-500">
-        People sign in with Google. If their email matches an Ishanga profile they are linked automatically – you only need to give them an app role.
+        People sign in with Google. If their email matches an Ishanga profile they are linked automatically – you only need to give them an app role.{' '}
+        <b>Changes save automatically</b> as soon as you pick an option.
       </p>
       <div className="space-y-2">
         {users.map((u) => (

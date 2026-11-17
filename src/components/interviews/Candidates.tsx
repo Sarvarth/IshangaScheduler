@@ -67,11 +67,9 @@ export default function CandidatesTab() {
     load();
   }, []);
 
-  const minNotice = Number(L.settings.min_notice_hours || 12);
-
   // Free 30-min slots per person, excluding already-booked times
   const freeByPerson = useMemo(() => {
-    const earliest = Date.now() + minNotice * 3600e3;
+    const earliest = Date.now();
     const m = new Map<string, string[]>();
     for (const a of avail) {
       const busy = bookings.filter((b) => b.person_id === a.person_id && (b.status === 'booked' || (b.status === 'cancelled' && b.cancelled_by === 'interviewer')));
@@ -82,7 +80,7 @@ export default function CandidatesTab() {
       }
     }
     return m;
-  }, [avail, bookings, minNotice]);
+  }, [avail, bookings]);
 
   const upcomingCount = useMemo(() => {
     const m = new Map<string, number>();

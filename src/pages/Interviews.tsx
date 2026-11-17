@@ -83,14 +83,12 @@ function InterviewSettings() {
   const L = useLookups();
   const toast = useToast();
   const [g, setG] = useState(L.settings.interview_guidelines ?? '');
-  const [notice, setNotice] = useState(L.settings.min_notice_hours ?? '12');
   const [langs, setLangs] = useState(L.settings.languages ?? '');
 
   const save = async () => {
     const now = new Date().toISOString();
     const { error } = await supabase.from('app_settings').upsert([
       { key: 'interview_guidelines', value: g, updated_at: now },
-      { key: 'min_notice_hours', value: String(Math.max(0, Number(notice) || 0)), updated_at: now },
       { key: 'languages', value: langs, updated_at: now },
     ]);
     if (error) return toast(errMsg(error), true);
@@ -102,9 +100,6 @@ function InterviewSettings() {
     <Card className="space-y-4">
       <Field label="Guidelines shown to candidates" hint="Shown on the booking page. Candidates must tick “I have read” before choosing a time.">
         <Textarea rows={8} value={g} onChange={(e) => setG(e.target.value)} />
-      </Field>
-      <Field label="Minimum notice (hours)" hint="Candidates can't book a slot starting sooner than this.">
-        <Input type="number" min={0} value={notice} onChange={(e) => setNotice(e.target.value)} />
       </Field>
       <Field label="Interview languages (comma separated)">
         <Input value={langs} onChange={(e) => setLangs(e.target.value)} />
