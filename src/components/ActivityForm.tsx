@@ -1,9 +1,37 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { addDaysISO, errMsg, todayISO } from '../lib/format';
 import type { Activity } from '../lib/types';
 import { useLookups } from '../context/LookupContext';
 import { Button, Checkbox, Field, Input, Modal, Select, Textarea, useToast } from './ui';
+
+type Repeat = 'none' | 'weekly' | 'fortnightly' | 'monthly' | 'first_sunday';
+type VisibilityMode = 'immediate' | 'one_month' | '15_days' | '7_days' | 'custom';
+
+const isoDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+const firstSunday = (year: number, month: number) => {
+  const first = new Date(year, month, 1, 12);
+  first.setDate(1 + ((7 - first.getDay()) % 7));
+  return isoDate(first);
+};
+
+const oneMonthBefore = (iso: string) => {
+  const date = new Date(`${iso}T12:00:00`);
+  const day = date.getDate();
+  date.setDate(1);
+  date.setMonth(date.getMonth() - 1);
+  date.setDate(Math.min(day, new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()));
+  return isoDate(date);
+};
+
+const modeFor = (activity?: Activity | null): VisibilityMode => {
+  if (!activity?.visible_from) return 'immediate';
+  if (activity.visible_from === oneMonthBefore(activity.start_date)) return 'one_month';
+  if (activity.visible_from === addDaysISO(activity.start_date, -15)) return '15_days';
+  if (activity.visible_from === addDaysISO(activity.start_date, -7)) return '7_days';
+  return 'custom';
+};
 
 export default function ActivityForm({
   open,
@@ -21,9 +49,11 @@ export default function ActivityForm({
   const { activityTypes, activityTypeById } = useLookups();
   const toast = useToast();
   const active = activityTypes.filter((t) => t.is_active || t.id === activity?.activity_type_id);
+  const initialTypeId = activity?.activity_type_id ?? defaultTypeId ?? active[0]?.id ?? '';
+  const initialSatsang = activityTypeById.get(initialTypeId)?.name.toLowerCase() === 'satsang';
   const [busy, setBusy] = useState(false);
   const [f, setF] = useState(() => ({
-    activity_type_id: activity?.activity_type_id ?? defaultTypeId ?? active[0]?.id ?? '',
+    activity_type_id: initialTypeId,
     title: activity?.title ?? '',
     start_date: activity?.start_date ?? todayISO(),
     end_date: activity?.end_date ?? '',
@@ -34,13 +64,27 @@ export default function ActivityForm({
     opt_in_open: activity?.opt_in_open ?? true,
     notes: activity?.notes ?? '',
   }));
-  const [repeat, setRepeat] = useState<'none' | 'weekly' | 'fortnightly' | 'monthly'>('none');
-  const [count, setCount] = useState(4);
+  const [center, setCenter] = useState(activity?.center ?? '');
+  const [centers, setCenters] = useState<string[]>([]);
+  const [showEvent, setShowEvent] = useState(activity?.is_visible ?? true);
+  const [repeat, setRepeat] = useState<Repeat>(initialSatsang ? 'first_sunday' : 'none');
+  const [count, setCount] = useState(initialSatsang ? 12 : 4);
+  const [visibilityMode, setVisibilityMode] = useState<VisibilityMode>(() => modeFor(activity));
   const set = (k: keyof typeof f, v: string | boolean) => setF((s) => ({ ...s, [k]: v }));
+  const isSatsang = activityTypeById.get(f.activity_type_id)?.name.toLowerCase() === 'satsang';
+
+  useEffect(() => {
+    supabase
+      .from('people')
+      .select('center')
+      .not('center', 'is', null)
+      .then(({ data }) => setCenters([...new Set((data ?? []).map((p) => p.center as string).filter(Boolean))].sort()));
+  }, []);
 
   const save = async () => {
     if (!f.activity_type_id) return toast('Choose an activity type', true);
     if (!f.start_date) return toast('Start date is required', true);
+    if (isSatsang && !center.trim()) return toast('Choose a center for this Satsang', true);
     setBusy(true);
     try {
       const base = {
@@ -50,25 +94,63 @@ export default function ActivityForm({
         start_time: f.start_time || null,
         location: f.location || null,
         city: f.city || null,
+        center: isSatsang ? center.trim() : activity?.center ?? null,
+        is_visible: isSatsang ? showEvent : activity?.is_visible ?? true,
         notes: f.notes || null,
       };
       if (activity) {
-        const { error } = await supabase.from('activities').update(base).eq('id', activity.id);
+        const visibleFrom = isSatsang
+          ? !showEvent
+            ? null
+            : visibilityMode === 'one_month'
+              ? oneMonthBefore(base.start_date)
+              : visibilityMode === '15_days'
+                ? addDaysISO(base.start_date, -15)
+                : visibilityMode === '7_days'
+                  ? addDaysISO(base.start_date, -7)
+                  : visibilityMode === 'custom'
+                    ? activity.visible_from
+                    : null
+          : activity.visible_from;
+        const { error } = await supabase.from('activities').update({ ...base, visible_from: visibleFrom }).eq('id', activity.id);
         if (error) throw error;
         onSaved(activity.id);
       } else {
         const n = repeat === 'none' ? 1 : Math.max(1, Math.min(52, count));
         const span = base.end_date ? (new Date(base.end_date).getTime() - new Date(base.start_date).getTime()) / 86400000 : null;
-        const rows = Array.from({ length: n }, (_, i) => {
-          let start = base.start_date;
-          if (repeat === 'weekly') start = addDaysISO(start, 7 * i);
-          if (repeat === 'fortnightly') start = addDaysISO(start, 14 * i);
-          if (repeat === 'monthly') {
-            const d = new Date(start + 'T00:00:00');
-            d.setMonth(d.getMonth() + i);
-            start = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const starts: string[] = [];
+        if (repeat === 'first_sunday') {
+          const firstMonth = new Date(`${base.start_date}T12:00:00`);
+          for (let month = 0; starts.length < n; month++) {
+            const first = new Date(firstMonth.getFullYear(), firstMonth.getMonth() + month, 1, 12);
+            const start = firstSunday(first.getFullYear(), first.getMonth());
+            if (start >= base.start_date) starts.push(start);
           }
-          return { ...base, start_date: start, end_date: span !== null ? addDaysISO(start, span) : null };
+        } else {
+          for (let i = 0; i < n; i++) {
+            let start = base.start_date;
+            if (repeat === 'weekly') start = addDaysISO(start, 7 * i);
+            if (repeat === 'fortnightly') start = addDaysISO(start, 14 * i);
+            if (repeat === 'monthly') {
+              const date = new Date(`${start}T12:00:00`);
+              date.setMonth(date.getMonth() + i);
+              start = isoDate(date);
+            }
+            starts.push(start);
+          }
+        }
+        const rows = starts.map((start) => {
+          const visibleFrom =
+            !showEvent
+              ? null
+              : visibilityMode === 'one_month'
+              ? oneMonthBefore(start)
+              : visibilityMode === '15_days'
+                ? addDaysISO(start, -15)
+                : visibilityMode === '7_days'
+                  ? addDaysISO(start, -7)
+                  : null;
+          return { ...base, start_date: start, end_date: span !== null ? addDaysISO(start, span) : null, visible_from: visibleFrom };
         });
         const { data, error } = await supabase.from('activities').insert(rows).select('id');
         if (error) throw error;
@@ -100,7 +182,21 @@ export default function ActivityForm({
       }
     >
       <Field label="Activity type *">
-        <Select value={f.activity_type_id} onChange={(e) => set('activity_type_id', e.target.value)} disabled={!!activity}>
+        <Select
+          value={f.activity_type_id}
+          onChange={(e) => {
+            const typeId = e.target.value;
+            const satsang = activityTypeById.get(typeId)?.name.toLowerCase() === 'satsang';
+            set('activity_type_id', typeId);
+            if (satsang) {
+              setRepeat('first_sunday');
+              setCount(12);
+            } else if (repeat === 'first_sunday') {
+              setRepeat('none');
+            }
+          }}
+          disabled={!!activity}
+        >
           {active.map((t) => (
             <option key={t.id} value={t.id}>
               {t.name}
@@ -128,6 +224,28 @@ export default function ActivityForm({
       <Field label="Venue / location">
         <Input value={f.location} onChange={(e) => set('location', e.target.value)} />
       </Field>
+      {isSatsang && (
+        <>
+          <Field label="Center *" hint="Each center has its own Satsang event; Ishangas can filter by center and opt in to that event.">
+            <Input list="satsang-centers" value={center} onChange={(e) => setCenter(e.target.value)} />
+            <datalist id="satsang-centers">
+              {centers.map((name) => <option key={name} value={name} />)}
+            </datalist>
+          </Field>
+          <Checkbox label="Show this event to Ishangas" checked={showEvent} onChange={setShowEvent} />
+          {showEvent && (
+            <Field label="Show event">
+              <Select value={visibilityMode} onChange={(e) => setVisibilityMode(e.target.value as VisibilityMode)}>
+                <option value="immediate">Immediately</option>
+                <option value="one_month">1 month before</option>
+                <option value="15_days">15 days before</option>
+                <option value="7_days">7 days before</option>
+                {visibilityMode === 'custom' && <option value="custom">Keep current schedule</option>}
+              </Select>
+            </Field>
+          )}
+        </>
+      )}
       <Field label="Region">
         <Input value={f.region} onChange={(e) => set('region', e.target.value)} />
       </Field>
@@ -139,6 +257,7 @@ export default function ActivityForm({
               <option value="weekly">Weekly</option>
               <option value="fortnightly">Every 2 weeks</option>
               <option value="monthly">Monthly</option>
+              {isSatsang && <option value="first_sunday">First Sunday each month</option>}
             </Select>
           </Field>
           {repeat !== 'none' && (

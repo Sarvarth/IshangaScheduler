@@ -73,7 +73,7 @@ export default function PersonDetail() {
     <>
       <PageHeader
         title={person.full_name}
-        subtitle={[person.city, person.center, person.region].filter(Boolean).join(' · ')}
+        subtitle={[person.center, person.secondary_center, person.state, person.cluster, person.region].filter(Boolean).join(' · ')}
         actions={
           can('manage_people') && (
             <>
@@ -113,6 +113,11 @@ export default function PersonDetail() {
               ✉️ {person.email}
             </a>
           )}
+          {person.gender && <div>Gender: {person.gender}</div>}
+          {person.batch && <div>Batch: {person.batch}</div>}
+          {person.area_of_expertise && <div>Area of expertise: {person.area_of_expertise}</div>}
+          {person.foundation_email && person.foundation_email !== person.email && <div>Foundation email: {person.foundation_email}</div>}
+          {person.personal_email && person.personal_email !== person.email && <div>Personal email: {person.personal_email}</div>}
           {person.notes && <p className="whitespace-pre-wrap text-stone-600">{person.notes}</p>}
         </div>
         <div className="grid grid-cols-3 gap-2 text-center">

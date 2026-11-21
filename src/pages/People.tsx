@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { ACTIVE_ASSIGNMENT, fmtDate, todayISO } from '../lib/format';
+import { ACTIVE_ASSIGNMENT, fmtDate, ISHANGA_CLUSTERS, todayISO } from '../lib/format';
 import type { PersonWithTags } from '../lib/types';
 import { useAuth } from '../context/AuthContext';
 import { useLookups } from '../context/LookupContext';
 import PersonForm from '../components/PersonForm';
+import PeopleRosterImport from '../components/PeopleRosterImport';
 import { Badge, Button, Card, ChipSelect, Empty, Input, PageHeader, Select, Spinner } from '../components/ui';
 
 type Stat = { upcoming: number; total: number; last: string | null };
@@ -17,10 +18,12 @@ export default function People() {
   const [people, setPeople] = useState<PersonWithTags[] | null>(null);
   const [stats, setStats] = useState<Map<string, Stat>>(new Map());
   const [q, setQ] = useState('');
-  const [typeFilter, setTypeFilter] = useState<string[]>([]);
+  const [typeFilter, setTypeFilter] = useState<string[]>(['all']);
   const [attrFilter, setAttrFilter] = useState<string[]>([]);
-  const [activeFilter, setActiveFilter] = useState<'active' | 'inactive' | 'all'>('active');
+  const [activeFilter, setActiveFilter] = useState<'active' | 'inactive' | 'all'>('all');
   const [adding, setAdding] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [clusterFilter, setClusterFilter] = useState('');
 
   const load = async () => {
     const [p, a] = await Promise.all([
@@ -51,30 +54,43 @@ export default function People() {
     return (people ?? []).filter((p) => {
       if (activeFilter === 'active' && !p.is_active) return false;
       if (activeFilter === 'inactive' && p.is_active) return false;
-      if (typeFilter.length && !typeFilter.every((t) => p.person_types.some((x) => x.type_id === t))) return false;
+      if (clusterFilter && p.cluster !== clusterFilter) return false;
+      const selectedType = typeFilter.find((typeId) => typeId !== 'all');
+      if (selectedType && !p.person_types.some((type) => type.type_id === selectedType)) return false;
+      if (selectedType) {
+        const selectedName = typeById.get(selectedType)?.name;
+        const otherName = selectedName === 'SPS Ishanga' ? 'Satsang Ishanga' : selectedName === 'Satsang Ishanga' ? 'SPS Ishanga' : null;
+        if (otherName && p.person_types.some((type) => typeById.get(type.type_id)?.name === otherName)) return false;
+      }
       if (attrFilter.length && !attrFilter.every((t) => p.person_attributes.some((x) => x.attribute_id === t))) return false;
-      if (term && ![p.full_name, p.city, p.center, p.phone, p.email].some((v) => v?.toLowerCase().includes(term))) return false;
+      if (term && ![p.full_name, p.city, p.center, p.secondary_center, p.state, p.cluster, p.phone, p.email].some((v) => v?.toLowerCase().includes(term))) return false;
       return true;
     });
-  }, [people, q, typeFilter, attrFilter, activeFilter]);
+  }, [people, q, typeFilter, attrFilter, activeFilter, clusterFilter]);
+
+  const clusters = [...new Set([...(people ?? []).map((p) => p.cluster).filter((value): value is string => !!value), ...ISHANGA_CLUSTERS])].sort();
 
   return (
     <>
       <PageHeader
         title="Ishangas"
         subtitle={people ? `${filtered.length} of ${people.length}` : undefined}
-        actions={can('manage_people') && <Button onClick={() => setAdding(true)}>+ Add</Button>}
+        actions={can('manage_people') && <><Button variant="secondary" onClick={() => setImporting(true)}>Import CSV</Button><Button onClick={() => setAdding(true)}>+ Add</Button></>}
       />
       <div className="mb-4 space-y-3">
-        <div className="flex gap-2">
-          <Input placeholder="Search name, city, phone…" value={q} onChange={(e) => setQ(e.target.value)} />
-          <Select className="w-32 shrink-0" value={activeFilter} onChange={(e) => setActiveFilter(e.target.value as typeof activeFilter)}>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-[minmax(0,1fr)_11rem_8rem]">
+          <Input className="col-span-2 sm:col-span-1" placeholder="Search name, center, phone…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Select className="w-full" value={clusterFilter} onChange={(e) => setClusterFilter(e.target.value)}>
+            <option value="">All clusters</option>
+            {clusters.map((cluster) => <option key={cluster} value={cluster}>{cluster}</option>)}
+          </Select>
+          <Select className="w-full" value={activeFilter} onChange={(e) => setActiveFilter(e.target.value as typeof activeFilter)}>
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
             <option value="all">All</option>
           </Select>
         </div>
-        <ChipSelect options={ishangaTypes} value={typeFilter} onChange={setTypeFilter} />
+        <ChipSelect options={[{ id: 'all', name: 'All types' }, ...ishangaTypes]} value={typeFilter} onChange={setTypeFilter} single />
         {attributes.length > 0 && <ChipSelect options={attributes} value={attrFilter} onChange={setAttrFilter} />}
       </div>
 
@@ -93,11 +109,12 @@ export default function People() {
                     <div className="font-semibold">
                       {p.full_name} {!p.is_active && <Badge c="stone">Inactive</Badge>}
                     </div>
-                    <div className="text-xs text-stone-500">{[p.city, p.center].filter(Boolean).join(' · ') || p.region}</div>
+                    <div className="text-xs text-stone-500">{[p.center, p.secondary_center, p.state].filter(Boolean).join(' · ') || p.region}</div>
                   </div>
                   {s && s.upcoming > 0 && <Badge c="emerald">{s.upcoming} upcoming</Badge>}
                 </div>
                 <div className="mt-2 flex flex-wrap gap-1">
+                  {p.cluster && <Badge c="teal">{p.cluster}</Badge>}
                   {p.person_types.map((t) => (
                     <Badge key={t.type_id} c="orange">
                       {typeById.get(t.type_id)?.name}
@@ -120,6 +137,7 @@ export default function People() {
         </div>
       )}
       {adding && <PersonForm open onClose={() => setAdding(false)} onSaved={(id) => nav(`/people/${id}`)} />}
+      {importing && <PeopleRosterImport open onClose={() => setImporting(false)} onImported={load} />}
     </>
   );
 }

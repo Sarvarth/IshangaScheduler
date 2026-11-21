@@ -62,8 +62,16 @@ export interface Person {
   full_name: string;
   phone: string | null;
   email: string | null;
+  foundation_email: string | null;
+  personal_email: string | null;
   city: string | null;
+  state: string | null;
   center: string | null;
+  secondary_center: string | null;
+  cluster: string | null;
+  batch: string | null;
+  gender: string | null;
+  area_of_expertise: string | null;
   region: string;
   is_active: boolean;
   notes: string | null;
@@ -96,9 +104,12 @@ export interface Activity {
   start_time: string | null;
   location: string | null;
   city: string | null;
+  center: string | null;
   region: string;
   status: ActivityStatus;
   opt_in_open: boolean;
+  is_visible: boolean;
+  visible_from: string | null;
   notes: string | null;
   created_at: string;
 }

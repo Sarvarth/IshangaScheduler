@@ -76,9 +76,17 @@ create table public.people (
   full_name text not null,
   phone text,
   email text,
+  foundation_email text,
+  personal_email text,
   city text,
+  state text,
   center text,
-  region text not null default 'North Bharat',
+  secondary_center text,
+  cluster text,
+  batch text,
+  gender text,
+  area_of_expertise text,
+  region text not null default 'North Region',
   is_active boolean not null default true,
   notes text,
   created_at timestamptz not null default now()
@@ -170,6 +178,31 @@ create or replace function public.my_person_id()
 returns uuid language sql stable security definer set search_path = public as $$
   select person_id from public.profiles where id = auth.uid();
 $$;
+
+create or replace function public.enforce_single_sps_satsang_type()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare v_type_name text;
+begin
+  select name into v_type_name from public.ishanga_types where id = new.type_id;
+  if v_type_name in ('SPS Ishanga', 'Satsang Ishanga') then
+    perform 1 from public.people where id = new.person_id for update;
+    if exists (
+      select 1
+      from public.person_types pt
+      join public.ishanga_types it on it.id = pt.type_id
+      where pt.person_id = new.person_id
+        and pt.type_id <> new.type_id
+        and it.name in ('SPS Ishanga', 'Satsang Ishanga')
+    ) then
+      raise exception 'An Ishanga can only be one of SPS Ishanga or Satsang Ishanga';
+    end if;
+  end if;
+  return new;
+end $$;
+
+create trigger person_types_single_ishanga_category
+before insert or update of person_id, type_id on public.person_types
+for each row execute function public.enforce_single_sps_satsang_type();
 
 -- First user to sign up becomes Admin, everyone else gets the default (Pending) role.
 create or replace function public.handle_new_user()

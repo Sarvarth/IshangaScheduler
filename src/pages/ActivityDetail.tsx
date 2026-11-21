@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { ACTIVE_ASSIGNMENT, ACTIVITY_STATUS, ASSIGNMENT_STATUS, CANDIDATE_RESULT, color, errMsg, fmtRange } from '../lib/format';
+import { ACTIVE_ASSIGNMENT, ACTIVITY_STATUS, ASSIGNMENT_STATUS, CANDIDATE_RESULT, color, errMsg, fmtRange, todayISO } from '../lib/format';
 import type { Activity, ActivityRole, ActivityStatus, Assignment, AssignmentStatus, Candidate, CandidateResult, PersonWithTags } from '../lib/types';
 import { useAuth } from '../context/AuthContext';
 import { useLookups } from '../context/LookupContext';
@@ -55,7 +55,8 @@ export default function ActivityDetail() {
 
   const at = L.activityTypeById.get(activity.activity_type_id);
   const roles = L.rolesForType(activity.activity_type_id);
-  const openForOptIn = activity.opt_in_open && (activity.status === 'planned' || activity.status === 'confirmed');
+  const visibilityReleased = activity.is_visible && (!activity.visible_from || activity.visible_from <= todayISO());
+  const openForOptIn = visibilityReleased && activity.opt_in_open && (activity.status === 'planned' || activity.status === 'confirmed');
 
   const run = async (p: PromiseLike<{ error: unknown }>, ok: string) => {
     const { error } = await p;
@@ -87,7 +88,7 @@ export default function ActivityDetail() {
     const lines = [
       `*${activity.title}* (${at?.name})`,
       fmtRange(activity.start_date, activity.end_date) + (activity.start_time ? ` · ${activity.start_time.slice(0, 5)}` : ''),
-      [activity.location, activity.city].filter(Boolean).join(', '),
+      [activity.center, activity.location, activity.city].filter(Boolean).join(', '),
       '',
       ...roles.flatMap((r) => {
         const list = asg.filter((a) => a.role_id === r.id && ACTIVE_ASSIGNMENT.includes(a.status));
@@ -106,7 +107,7 @@ export default function ActivityDetail() {
     <>
       <PageHeader
         title={activity.title}
-        subtitle={`${fmtRange(activity.start_date, activity.end_date)}${activity.start_time ? ' · ' + activity.start_time.slice(0, 5) : ''}`}
+        subtitle={`${fmtRange(activity.start_date, activity.end_date)}${activity.start_time ? ' · ' + activity.start_time.slice(0, 5) : ''}${activity.center ? ' · ' + activity.center : ''}`}
         actions={
           <>
             <Button variant="secondary" onClick={share}>
@@ -132,7 +133,7 @@ export default function ActivityDetail() {
           <Badge c={ACTIVITY_STATUS[activity.status].color}>{ACTIVITY_STATUS[activity.status].label}</Badge>
           <Badge c={activity.opt_in_open ? 'emerald' : 'stone'}>{activity.opt_in_open ? 'Opt-in open' : 'Opt-in closed'}</Badge>
         </div>
-        {(activity.location || activity.city) && <div className="text-sm">📍 {[activity.location, activity.city, activity.region].filter(Boolean).join(', ')}</div>}
+        {(activity.center || activity.location || activity.city) && <div className="text-sm">📍 {[activity.center, activity.location, activity.city, activity.region].filter(Boolean).join(', ')}</div>}
         {activity.notes && <p className="whitespace-pre-wrap text-sm text-stone-600">{activity.notes}</p>}
         {manage && (
           <Field label="Activity status">

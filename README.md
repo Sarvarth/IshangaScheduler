@@ -12,7 +12,12 @@ Mobile-first scheduler for Ishangas: track who is part of which Satsang / Mandal
    Then do the same with [supabase/002_interviews.sql](supabase/002_interviews.sql) (interview booking module),
    [supabase/003_reassign_interviewer.sql](supabase/003_reassign_interviewer.sql),
    [supabase/004_meet_and_calendar.sql](supabase/004_meet_and_calendar.sql) and
-   [supabase/005_auto_link_logins.sql](supabase/005_auto_link_logins.sql), in that order.
+   [supabase/005_auto_link_logins.sql](supabase/005_auto_link_logins.sql),
+   [supabase/006_remove_min_notice.sql](supabase/006_remove_min_notice.sql) and
+   [supabase/007_candidate_booking_lock.sql](supabase/007_candidate_booking_lock.sql),
+   [supabase/008_satsang_visibility.sql](supabase/008_satsang_visibility.sql) and
+   [supabase/009_ishanga_clusters.sql](supabase/009_ishanga_clusters.sql) and
+   [supabase/010_exclusive_ishanga_types.sql](supabase/010_exclusive_ishanga_types.sql), in that order.
 3. **Project Settings → API**: copy the *Project URL* and the *anon public* key.
 4. Optional: **Authentication → Providers → Email** — turn off "Confirm email" if you don't want users to confirm their email.
 5. **Authentication → URL Configuration**: set *Site URL* to your deployed URL and add `http://localhost:5173` under *Redirect URLs*.
@@ -41,6 +46,18 @@ SPA routing is handled by `vercel.json` / `public/_redirects`.
 - The **first person to sign up becomes Admin** automatically.
 - Everyone after that gets the *Pending* role (no access) until an admin assigns a role in **Settings → Users**.
 - In **Settings → Users**, link each login to their Ishanga profile so they can opt in to activities themselves.
+
+## Import the Ishanga roster
+
+After applying migrations `008_satsang_visibility.sql` and `009_ishanga_clusters.sql`, sign in with a user who can manage people, open **Ishangas → Import CSV**, and select the latest roster CSV. The import maps the first Center column to Center, preserves the second Center separately, sets Region to **North Region**, and assigns clusters from State. It retains both emails, gender, training language, batch, expertise, and responsibility notes; `IE & Satsang` adds the Satsang type and IE attribute. Matching records are updated by name plus phone or a matching email with the same name/phone.
+
+## Test users
+
+To create one login for each seeded app role, run `demo/create-test-users.mjs` against a test Supabase project. Set `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `TEST_USER_PASSWORD` in your terminal environment first. The service-role key bypasses row-level security; never use a production key or commit it to the repository.
+
+The script creates or refreshes these accounts: `ishanga-scheduler-test-admin@example.com`, `ishanga-scheduler-test-coordinator@example.com`, `ishanga-scheduler-test-viewer@example.com`, `ishanga-scheduler-test-ishanga@example.com`, and `ishanga-scheduler-test-pending@example.com`. They all use the password from `TEST_USER_PASSWORD`. The Ishanga account is linked to a test person with all configured Ishanga types.
+
+On Windows PowerShell, run `node demo/create-test-users.mjs` after setting those three environment variables in the current terminal.
 
 ## 5. Google Calendar invites (optional, free)
 

@@ -1,9 +1,23 @@
 @import "tailwindcss";
 
+@theme {
+  --color-orange-50: #fff5ed;
+  --color-orange-100: #ffe8d8;
+  --color-orange-200: #ffd2b5;
+  --color-orange-300: #ffb184;
+  --color-orange-400: #f58b57;
+  --color-orange-500: #e96d36;
+  --color-orange-600: #d95224;
+  --color-orange-700: #b5411d;
+  --color-orange-800: #a2381a;
+  --color-orange-900: #852e17;
+  --color-orange-950: #4b170c;
+}
+
 html {
   -webkit-tap-highlight-color: transparent;
 }
 
 body {
-  @apply text-stone-900 antialiased;
+  @apply bg-[#f2efe9] text-stone-900 antialiased;
 }

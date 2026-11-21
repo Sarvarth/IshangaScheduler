@@ -11,6 +11,7 @@ interface PageData {
   language: string | null;
   training: string | null;
   open: boolean;
+  booking_locked: boolean;
   guidelines: string | null;
   requested_times: string | null;
   booking: { starts_at: string; ends_at: string; status: string; meeting_link: string | null } | null;
@@ -21,7 +22,6 @@ export default function Book() {
   const { token } = useParams();
   const [data, setData] = useState<PageData | null | undefined>(undefined);
   const [agreed, setAgreed] = useState(false);
-  const [changing, setChanging] = useState(false);
   const [day, setDay] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
   const [requesting, setRequesting] = useState(false);
@@ -92,7 +92,7 @@ export default function Book() {
 
       {done ? (
         <Card className="text-center">Your interview has been completed. Thank you! 🙏</Card>
-      ) : booked && !changing ? (
+      ) : booked ? (
         <Card className="space-y-4 border-emerald-300 bg-emerald-50">
           <div className="text-center">
             <div className="text-4xl">✅</div>
@@ -122,9 +122,6 @@ export default function Book() {
           </div>
           {data.open && (
             <div className="flex justify-center gap-4 pt-2 text-sm">
-              <button className="text-orange-800 underline" onClick={() => setChanging(true)}>
-                Change time
-              </button>
               <button
                 className="text-rose-700 underline"
                 onClick={() => window.confirm('Cancel your interview?') && call('cancel_my_interview', {})}
@@ -134,6 +131,10 @@ export default function Book() {
               </button>
             </div>
           )}
+        </Card>
+      ) : data.booking_locked ? (
+        <Card className="text-center text-sm text-stone-700">
+          A time has already been selected using this link. Please contact the coordinator if you need to change your interview time.
         </Card>
       ) : !data.open ? (
         <Card className="text-center">Booking is closed for this link. Please contact the coordinator.</Card>
@@ -199,13 +200,6 @@ export default function Book() {
                 </button>
               )}
             </div>
-            {changing && (
-              <div className="mt-3 text-center">
-                <button className="text-sm text-stone-500 underline" onClick={() => setChanging(false)}>
-                  Keep my current time
-                </button>
-              </div>
-            )}
           </Card>
         </>
       )}
@@ -222,7 +216,7 @@ export default function Book() {
             <Button
               disabled={busy}
               onClick={async () => {
-                if (await call('book_interview', { p_start: confirm })) setChanging(false);
+                await call('book_interview', { p_start: confirm });
                 setConfirm(null);
               }}
             >

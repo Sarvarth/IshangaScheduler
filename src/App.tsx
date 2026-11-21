@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard';
 import People from './pages/People';
 import PersonDetail from './pages/PersonDetail';
 import Activities from './pages/Activities';
+import Satsang from './pages/Satsang';
 import ActivityDetail from './pages/ActivityDetail';
 import Settings from './pages/Settings';
 import Interviews from './pages/Interviews';
@@ -68,6 +69,7 @@ export default function App() {
             <>
               <Route path="activities" element={<Activities />} />
               <Route path="activities/:id" element={<ActivityDetail />} />
+              <Route path="satsang" element={<Satsang />} />
               <Route path="people" element={<People />} />
               <Route path="people/:id" element={<PersonDetail />} />
             </>

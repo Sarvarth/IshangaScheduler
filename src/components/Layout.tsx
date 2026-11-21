@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 const icons: Record<string, string> = {
   home: 'M3 12l9-9 9 9M5 10v10h5v-6h4v6h5V10',
   activities: 'M8 7V3m8 4V3M4 11h16M5 5h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V6a1 1 0 011-1z',
+  satsang: 'M12 3v2m0 14v2M5.64 5.64l1.42 1.42m9.88 9.88 1.42 1.42M3 12h2m14 0h2M5.64 18.36l1.42-1.42m9.88-9.88 1.42-1.42M16 12a4 4 0 11-8 0 4 4 0 018 0z',
   people: 'M17 20h5v-2a4 4 0 00-5-3.87M9 20H2v-2a4 4 0 015-3.87m6-4a4 4 0 11-8 0 4 4 0 018 0zm6 2a3 3 0 11-6 0 3 3 0 016 0z',
   interviews: 'M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.4-4 8-9 8a9.9 9.9 0 01-4.3-.95L3 20l1.4-3.7A7.6 7.6 0 013 12c0-4.4 4-8 9-8s9 3.6 9 8z',
   settings: 'M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-2.82 1.17V21a2 2 0 11-4 0v-.09A1.65 1.65 0 008.6 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 003 14H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 8.6a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 3.09V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9v0a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z',
@@ -20,6 +21,7 @@ export default function Layout() {
   const nav = [
     { to: '/', label: 'Home', icon: 'home', show: true },
     { to: '/activities', label: 'Activities', icon: 'activities', show: can('view') },
+    { to: '/satsang', label: 'Satsang', icon: 'satsang', show: can('view') },
     { to: '/people', label: 'Ishangas', icon: 'people', show: can('view') },
     { to: '/interviews', label: 'Interviews', icon: 'interviews', show: can('manage_activities') || (can('opt_in') && !!profile?.person_id) },
     { to: '/settings', label: 'Settings', icon: 'settings', show: can('manage_settings') || can('manage_users') || can('export') },

@@ -1,5 +1,7 @@
 import type { ActivityStatus, AssignmentStatus, CandidateResult } from './types';
 
+export const ISHANGA_CLUSTERS = ['Punjab & Jammu Cluster', 'Haryana & HP & UK Cluster', 'Rajasthan Cluster'];
+
 export const COLORS: Record<string, { badge: string; dot: string; border: string }> = {
   orange: { badge: 'bg-orange-100 text-orange-800', dot: 'bg-orange-500', border: 'border-l-orange-500' },
   emerald: { badge: 'bg-emerald-100 text-emerald-800', dot: 'bg-emerald-500', border: 'border-l-emerald-500' },
@@ -49,6 +51,15 @@ export const addDaysISO = (iso: string, days: number) => {
   const d = new Date(iso + 'T00:00:00');
   d.setDate(d.getDate() + days);
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+};
+
+export const addMonthsISO = (iso: string, months: number) => {
+  const d = new Date(iso + 'T12:00:00');
+  const day = d.getDate();
+  d.setDate(1);
+  d.setMonth(d.getMonth() + months);
+  d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()));
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
 export const fmtDate = (iso: string | null | undefined) =>
